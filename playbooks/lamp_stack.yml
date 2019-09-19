@@ -1,8 +1,11 @@
 ---
 - name: install lamp stack
   hosts: all
-  remote_user: testserver2
+  remote_user: ansible
   become: yes
+  
+  vars:
+    - {servername: "example", documentroot: "/var/www/html/example", serveradmin: "webmaster@example.com"}
 
   tasks:
   - name: update all packages
@@ -51,6 +54,25 @@
     
   - name: add firewall rule
     ufw: rule=allow name="Apache Full"
+
+  - name: create website directory
+    file:
+      path: "/var/www/html/{{ servername }}"
+      state: directory
+    
+  - name: configure vhosts
+    template:
+      src: ../configs/vhosts.j2
+      dest: /etc/apache2/sites-available/example.conf
+      owner: root
+      group: root
+      mode: 'u=rw,g=r,o=r'
+      
+  - name: disable default site
+    command: a2dissite "000-default.conf"
+    
+  - name: a2ensite {{ servername }}
+    command: a2ensite {{ servername }}
     
   - name: restart apache
     service: name=apache2 state=restarted
