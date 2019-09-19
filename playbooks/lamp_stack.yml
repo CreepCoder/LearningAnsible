@@ -1,0 +1,78 @@
+---
+- name: install lamp stack
+  hosts: all
+  remote_user: ansible
+  become: yes
+  
+  vars:
+    - {servername: "example", documentroot: "/var/www/html/example", serveradmin: "webmaster@example.com"}
+
+  tasks:
+  - name: update all packages
+    apt: update_cache=yes cache_valid_time=3600 name=* state=latest
+    
+  - name: install apache
+    apt: name="{{ packages }}" state=latest
+    vars:
+      packages:
+      - apache2
+      - apache2-doc
+      - apache2-utils
+      - libexpat1
+      - ssl-cert
+
+  - name: start apache
+    service: name=apache2 state=started
+    
+  - name: install mysql
+    apt: name="{{ packages }}" state=latest
+    vars:
+      packages:
+      - mysql-server
+      - mysql-client
+      
+  - name: install php
+    apt: name="{{ packages }}" state=latest
+    vars:
+      packages:
+      - libapache2-mod-php7.2 
+      - php7.2 
+      - php7.2-common 
+      - php7.2-curl 
+      - php7.2-dev 
+      - php7.2-gd 
+      - php-pear 
+      - php-imagick  
+      - php7.2-mysql 
+      - php7.2-ps 
+      - php7.2-xsl 
+      - php-json 
+      - php-cgi
+    
+  - name: install phpmyadmin
+    apt: name=phpmyadmin state=latest
+    
+  - name: add firewall rule
+    ufw: rule=allow name="Apache Full"
+
+  - name: create website directory
+    file:
+      path: "/var/www/html/{{ servername }}"
+      state: directory
+    
+  - name: configure vhosts
+    template:
+      src: ../configs/vhosts.j2
+      dest: /etc/apache2/sites-available/example.conf
+      owner: root
+      group: root
+      mode: 'u=rw,g=r,o=r'
+      
+  - name: disable default site
+    command: a2dissite "000-default.conf"
+    
+  - name: a2ensite {{ servername }}
+    command: a2ensite {{ servername }}
+    
+  - name: restart apache
+    service: name=apache2 state=restarted
