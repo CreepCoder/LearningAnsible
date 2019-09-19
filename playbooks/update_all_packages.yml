@@ -1,0 +1,9 @@
+---
+- name: update all packages
+  hosts: all
+  remote_user: ansible
+  become: yes
+
+  tasks:
+  - name: update all packages
+    apt: update_cache=yes cache_valid_time=3600 name=* state=latest
