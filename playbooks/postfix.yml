@@ -1,0 +1,47 @@
+---
+- name: install and configure postfix
+  hosts: all
+  remote_user: ansible
+  become: yes
+  
+  vars:
+    - {servername: "creepcodermail", fqdn: "mail.creepcoder.nl", documentroot: "/var/www/html/example", serveradmin: "webmaster@example.com"}
+
+  tasks:
+  - name: update all packages
+    apt: update_cache=yes cache_valid_time=3600 name=* state=latest
+    
+  - name: install postfix
+    apt: name="{{ packages }}" state=latest
+    vars:
+      packages:
+      - libsasl2-modules
+      - postfix
+      - mailutils
+
+  - name: start postfix
+    service: name=postfix state=started
+
+  - name: create mail directory
+    file:
+      path: "/home/ansible/{{ servername }}"
+      state: directory
+    
+  - name: configure postfix
+    template:
+      src: ../configs/postfix.j2
+      dest: /etc/postfix/main.cf
+      owner: root
+      group: root
+      mode: 'u=rw,g=r,o=r'
+      
+  - name: configure postfix
+    template:
+      src: ../configs/postfix.j2
+      dest: /etc/postfix/main.cf
+      owner: root
+      group: root
+      mode: 'u=rw,g=r,o=r'
+    
+  - name: restart postfix
+    service: name=postfix state=restarted
