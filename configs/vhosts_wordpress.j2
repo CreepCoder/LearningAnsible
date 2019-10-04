@@ -1,0 +1,17 @@
+<VirtualHost *:80>
+{% if serveradmin is defined %}
+  ServerAdmin {{ serveradmin }}
+{% endif %}
+ServerName {{ servername }}
+ServerAlias {{ servername }}
+DocumentRoot {{ documentroot }}
+
+<Directory "{{ documentroot }}">
+     Options Indexes FollowSymLinks
+     AllowOverride All
+     Require all granted
+</Directory>
+
+ErrorLog ${APACHE_LOG_DIR}/{{ servername }}_error.log 
+CustomLog ${APACHE_LOG_DIR}/{{ servername }}_access.log combined 
+</VirtualHost>
