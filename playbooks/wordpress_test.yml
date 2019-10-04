@@ -1,0 +1,166 @@
+---
+- name: install lamp stack and wordpress
+  hosts: all
+  remote_user: wpserver
+  become: yes
+  
+  # make sure that '/24' or another mask is present at the end of the ip-address
+  vars:
+    - servername: "wordpress"
+    - documentroot: "/var/www/html/wordpress"
+    - serveradmin: "webmaster@example.com"
+    - ipaddress: "192.168.48.133/24"
+    - gateway: "192.168.48.2"
+    - dns: "8.8.8.8"
+
+  tasks:
+  - name: add certbot repo
+    apt_repository: repo='ppa:certbot/certbot' state=present
+    
+  - name: update all packages
+    apt: update_cache=yes cache_valid_time=3600 name=* state=latest
+    
+  - name: set static IP to counter loopback issues on default searchdomain localdomain
+    template:
+      src: ../configs/50-cloud-init.j2
+      dest: "/etc/netplan/50-cloud-init.yaml"
+      owner: root
+      group: root
+      mode: 'u=rw,g=r,o=r'
+    
+  - name: install apache
+    apt: name="{{ packages }}" state=latest
+    vars:
+      packages:
+      - apache2
+      - apache2-doc
+      - apache2-utils
+      - libexpat1
+      - ssl-cert
+
+  - name: start apache
+    service: name=apache2 state=started
+    
+  - name: install certbot
+    apt: name="{{ packages }}" state=latest
+    vars:
+      packages:
+      - software-properties-common
+      - certbot
+      - python-certbot-apache
+    
+  - name: install mysql
+    apt: name="{{ packages }}" state=latest
+    vars:
+      packages:
+      - mysql-server
+      - mysql-client
+      - libmysqlclient-dev
+      - python3-dev
+      
+  - name: install php
+    apt: name="{{ packages }}" state=latest
+    vars:
+      packages:
+      - libapache2-mod-php7.2 
+      - php7.2 
+      - php7.2-common 
+      - php7.2-curl 
+      - php7.2-dev 
+      - php7.2-gd 
+      - php-pear 
+      - php-imagick  
+      - php7.2-mysql 
+      - php7.2-ps 
+      - php7.2-xsl 
+      - php-json 
+      - php-cgi
+    
+  - name: install phpmyadmin
+    apt: name=phpmyadmin state=latest
+    
+  - name: install pip
+    apt: name=python3-pip state=latest
+    
+  - name: install the Python mysqlclient
+    pip: name=mysqlclient
+       
+  - name: add firewall rule
+    ufw: rule=allow name="Apache Full"
+
+  - name: create temp directory
+    file:
+      path: "/srv/files"
+      state: directory
+    
+  - name: create website directory
+    file:
+      path: "/var/www/html/{{ servername }}"
+      state: directory
+
+  - name: install unzip
+    apt: name=unzip state=latest
+      
+  - name: download latest wordpress
+    get_url:
+      url: "https://wordpress.org/latest.zip"
+      dest: /var/www/html/latest.zip
+      
+  - name: download and extract latest wordpress package
+    unarchive:
+      src: /var/www/html/latest.zip
+      dest: "/var/www/html"
+      remote_src: yes
+      
+  - name: delete downloaded archive
+    file:
+      path: /var/www/html/latest.zip
+      state: absent
+      
+  - name: recursively change ownership of wordpress
+    file:
+      path: "/var/www/html/{{ servername }}"
+      state: directory
+      recurse: yes
+      owner: www-data
+      group: www-data
+    
+  - name: configure wp-config
+    template:
+      src: ../configs/wp-config.j2
+      dest: "/var/www/html/{{ servername }}/wp-config.php"
+      owner: root
+      group: root
+      mode: 'u=rw,g=r,o=r'
+    
+  - name: configure vhosts
+    template:
+      src: ../configs/vhosts_wordpress.j2
+      dest: "/etc/apache2/sites-available/{{ servername }}.conf"
+      owner: root
+      group: root
+      mode: 'u=rw,g=r,o=r'
+      
+  - name: delete search domain
+    lineinfile:
+      path: /etc/resolv.conf
+      state: absent
+      regexp: 'search localdomain'
+     
+  - name: disable default site
+    command: a2dissite "000-default.conf"
+    
+  - name: enable new site {{ servername }}
+    command: a2ensite {{ servername }}
+  
+  - name: enable rewrite mod
+    apache2_module: name=rewrite state=present
+    
+  # - name: install SSL certificate
+    # shell: sudo certbot certonly --apache
+    
+  - name: restart apache
+    service: name=apache2 state=restarted
+    
+  - name: reboot machine
+    reboot:
