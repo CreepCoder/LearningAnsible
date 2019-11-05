@@ -1,5 +1,5 @@
 ---
-- name: install lamp stack
+- name: install lamp stack and nextcloud
   hosts: all
   remote_user: ansible
   become: yes
@@ -42,7 +42,6 @@
       - mysql-server
       - mysql-client
       - libmysqlclient-dev
-      - python3-dev
       
   - name: install php
     apt: name="{{ packages }}" state=latest
@@ -68,8 +67,11 @@
   # - name: install python-mysqldb for sql statements
     # apt: name=python-mysqldb state=latest
     
-  # - name: install pip
-    # apt: name=python3-pip state=latest
+  - name: install pip
+    apt: name=python3-pip state=latest
+    
+  - name: install the mysqlclient module
+    pip: name=mysqlclient
     
   # - name: install the Python mysqlclient
     # pip: name=mysqlclient
