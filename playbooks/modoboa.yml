@@ -1,0 +1,39 @@
+---
+- name: modoboa
+  hosts: all
+  remote_user: ansible
+  become: yes
+  
+  vars:
+    - {domain_name: "192.168.48.132"}
+
+  tasks:
+  - name: update all packages
+    apt: update_cache=yes cache_valid_time=3600 name=* state=latest
+    
+  - name: install python dependencies
+    apt: name="{{ packages }}" state=latest
+    vars:
+      packages:
+      - python-virtualenv
+      - python-pip
+    
+  - name: create temp directory
+    file:
+      path: "/srv/modoboa_temp"
+      state: directory
+      
+  - git:
+      repo: 'https://github.com/modoboa/modoboa-installer'
+      dest: /srv/modoboa_temp
+  
+  - name: copy config file
+    template:
+      src: ../configs/modoboa_installer.j2
+      dest: /srv/modoboa_temp/installer.cfg
+      owner: root
+      group: root
+      mode: 'u=rw,g=r,o=r'
+    
+  - name: start installation
+    shell: "sudo /srv/modoboa_temp/run.py --force --configfile installer.cfg {{ domain_name }}"
